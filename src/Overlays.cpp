@@ -6,17 +6,19 @@
 #include <WiFi.h>
 #include "effects.h"
 #include "MQTTManager.h"
+#include "Globals.h"
+#include "ServerManager.h"
 
 std::vector<Notification> notifications;
 bool notifyFlag = false;
 
 void StatusOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, GifPlayer *gifPlayer)
 {
-    if (!WiFi.isConnected())
+    if (WIFI_ENABLED && !WiFi.isConnected())
     {
         matrix->drawPixel(0, 0, fadeColor(0xFF0000, 2000));
     }
-    if (!MQTTManager.isConnected())
+    if (WIFI_ENABLED && ServerManager.isConnected && !MQTTManager.isConnected())
     {
         matrix->drawPixel(0, 7, fadeColor(0xFFFF00, 2000));
     }

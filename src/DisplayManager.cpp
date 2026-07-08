@@ -123,9 +123,7 @@ void DisplayManager_::applyAllSettings()
   ui->setTimePerApp(TIME_PER_APP);
   ui->setTimePerTransition(TIME_PER_TRANSITION);
 
-  if (MATRIX_OFF)
-    setBrightness(0);
-  else if (!AUTO_BRIGHTNESS)
+  if (!AUTO_BRIGHTNESS)
     setBrightness(BRIGHTNESS);
   setTextColor(TEXTCOLOR_888);
   setAutoTransition(AUTO_TRANSITION);
@@ -997,10 +995,13 @@ bool DisplayManager_::generateNotification(uint8_t source, const char *json)
       }
       else
       {
-        HTTPClient http;
-        http.begin("http://" + client + "/api/notify");
-        http.POST(modifiedJson);
-        http.end();
+        if (WIFI_ENABLED && ServerManager.isConnected)
+        {
+          HTTPClient http;
+          http.begin("http://" + client + "/api/notify");
+          http.POST(modifiedJson);
+          http.end();
+        }
       }
     }
   }
@@ -1251,7 +1252,7 @@ void DisplayManager_::tick()
     }
   }
 
-  if (!AP_MODE)
+  if (WIFI_ENABLED && ServerManager.isConnected)
   {
     uint16_t ArtnetStatus = artnet.read();
     if (ArtnetStatus > 0)
@@ -2038,6 +2039,7 @@ String DisplayManager_::getSettings()
   doc["SOM"] = START_ON_MONDAY;
   doc["CEL"] = IS_CELSIUS;
   doc["BLOCKN"] = BLOCK_NAVIGATION;
+  doc["WIFI"] = WIFI_ENABLED;
   doc["MAT"] = MATRIX_LAYOUT;
   doc["SOUND"] = SOUND_ACTIVE;
   doc["GAMMA"] = GAMMA;
@@ -2128,6 +2130,7 @@ void DisplayManager_::setNewSettings(const char *json)
   UPPERCASE_LETTERS = doc.containsKey("UPPERCASE") ? doc["UPPERCASE"].as<bool>() : UPPERCASE_LETTERS;
   SHOW_WEEKDAY = doc.containsKey("WD") ? doc["WD"].as<bool>() : SHOW_WEEKDAY;
   BLOCK_NAVIGATION = doc.containsKey("BLOCKN") ? doc["BLOCKN"].as<bool>() : BLOCK_NAVIGATION;
+  WIFI_ENABLED = doc.containsKey("WIFI") ? doc["WIFI"].as<bool>() : WIFI_ENABLED;
   SHOW_TIME = doc.containsKey("TIM") ? doc["TIM"].as<bool>() : SHOW_TIME;
   SHOW_DATE = doc.containsKey("DAT") ? doc["DAT"].as<bool>() : SHOW_DATE;
   SHOW_HUM = doc.containsKey("HUM") ? doc["HUM"].as<bool>() : SHOW_HUM;

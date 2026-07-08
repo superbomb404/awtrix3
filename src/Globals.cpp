@@ -206,6 +206,11 @@ void loadDevSettings()
             BUTTON_CALLBACK = doc["button_callback"].as<String>();
         }
 
+        if (doc.containsKey("wifi"))
+        {
+            WIFI_ENABLED = doc["wifi"].as<bool>();
+        }
+
         if (doc.containsKey("color_correction"))
         {
             auto correction = doc["color_correction"];
@@ -278,6 +283,7 @@ void loadSettings()
     DATE_FORMAT = Settings.getString("DFORMAT", "%d.%m.%y");
     START_ON_MONDAY = Settings.getBool("SOM", true);
     BLOCK_NAVIGATION = Settings.getBool("BLOCKN", false);
+    WIFI_ENABLED = Settings.getBool("WIFI", true);
     IS_CELSIUS = Settings.getBool("CEL", true);
     SHOW_TIME = Settings.getBool("TIM", true);
     SHOW_DATE = Settings.getBool("DAT", false);
@@ -310,6 +316,7 @@ void saveSettings()
     Settings.putBool("WD", SHOW_WEEKDAY);
     Settings.putBool("ABRI", AUTO_BRIGHTNESS);
     Settings.putBool("BLOCKN", BLOCK_NAVIGATION);
+    Settings.putBool("WIFI", WIFI_ENABLED);
     Settings.putBool("ATRANS", AUTO_TRANSITION);
     Settings.putBool("UPPER", UPPERCASE_LETTERS);
     Settings.putUInt("TCOL", TEXTCOLOR_888);
@@ -356,6 +363,7 @@ String MQTT_PASS;
 String MQTT_PREFIX;
 bool IO_BROKER = false;
 bool NET_STATIC = false;
+bool WIFI_ENABLED = true;
 bool SHOW_TIME = true;
 bool SHOW_DATE = true;
 bool SHOW_WEATHER = true;

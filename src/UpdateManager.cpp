@@ -57,6 +57,9 @@ void update_error(int err)
 
 void UpdateManager_::updateFirmware()
 {
+    if (!WIFI_ENABLED || WiFi.status() != WL_CONNECTED)
+        return;
+
     WiFiClientSecure client;
     client.setCACert(rootCACertificate);
 
@@ -84,6 +87,20 @@ void UpdateManager_::updateFirmware()
 
 bool UpdateManager_::checkUpdate(bool withScreen)
 {
+    if (!WIFI_ENABLED || WiFi.status() != WL_CONNECTED)
+    {
+        UPDATE_AVAILABLE = false;
+        if (withScreen)
+        {
+            DisplayManager.clear();
+            DisplayManager.resetTextColor();
+            DisplayManager.printText(0, 6, "NO WIFI", true, true);
+            DisplayManager.show();
+            delay(1000);
+        }
+        return 0;
+    }
+
     if (withScreen)
     {
         DisplayManager.clear();

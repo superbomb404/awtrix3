@@ -190,15 +190,41 @@ IPAddress FSWebServer::startWiFi(uint32_t timeout, const char *apSSID, const cha
 
     if (strlen(_ssid) && strlen(_pass))
     {
-        WiFi.begin(_ssid, _pass, 0, 0, true);
-        Serial.print(F("Connecting to "));
-        Serial.println(_ssid);
-
+        const uint8_t maxAttempts = 2;
         uint32_t startTime = millis();
-        while (WiFi.status() != WL_CONNECTED)
+        uint32_t attemptTimeout = m_timeout / maxAttempts;
+        if (attemptTimeout == 0)
+            attemptTimeout = m_timeout;
+
+        for (uint8_t attempt = 0; attempt < maxAttempts && (millis() - startTime) <= m_timeout; attempt++)
         {
-            delay(300);
-            Serial.print(".");
+            WiFi.disconnect();
+            delay(100);
+            WiFi.begin(_ssid, _pass, 0, 0, true);
+            Serial.print(F("Connecting to "));
+            Serial.print(_ssid);
+            Serial.print(F(" attempt "));
+            Serial.println(attempt + 1);
+
+            uint32_t attemptStartTime = millis();
+            while (WiFi.status() != WL_CONNECTED)
+            {
+                delay(300);
+                Serial.print(".");
+                if (WiFi.status() == WL_CONNECTED)
+                {
+                    ip = WiFi.localIP();
+                    WiFi.persistent(true);
+                    delete[] my_ssid;
+                    return ip;
+                }
+
+                if (millis() - attemptStartTime > attemptTimeout || millis() - startTime > m_timeout)
+                {
+                    break;
+                }
+            }
+
             if (WiFi.status() == WL_CONNECTED)
             {
                 ip = WiFi.localIP();
@@ -206,13 +232,9 @@ IPAddress FSWebServer::startWiFi(uint32_t timeout, const char *apSSID, const cha
                 delete[] my_ssid;
                 return ip;
             }
-            // If no connection after a while go in Access Point mode
-            if (millis() - startTime > m_timeout)
-            {
-                Serial.println(F("No connection after a while -> go in Access Point mode"));
-                break;
-            }
         }
+
+        Serial.println(F("No connection after 2 attempts or timeout -> go in Access Point mode"));
     }
 
     if (apSSID != nullptr && apPsw != nullptr)

@@ -206,6 +206,19 @@ void addHandler()
 
 void ServerManager_::setup()
 {
+    isConnected = false;
+    myIP = IPAddress(0, 0, 0, 0);
+    AP_MODE = false;
+
+    if (!WIFI_ENABLED)
+    {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        if (DEBUG_MODE)
+            DEBUG_PRINTLN(F("WiFi disabled by settings"));
+        return;
+    }
+
     esp_wifi_set_max_tx_power(80); // 82 * 0.25 dBm = 20.5 dBm
     esp_wifi_set_ps(WIFI_PS_NONE); // Power Saving deaktivieren
     if (!local_IP.fromString(NET_IP) || !gateway.fromString(NET_GW) || !subnet.fromString(NET_SN) || !primaryDNS.fromString(NET_PDNS) || !secondaryDNS.fromString(NET_SDNS))
@@ -215,8 +228,11 @@ void ServerManager_::setup()
         WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS);
     }
     WiFi.setHostname(HOSTNAME.c_str()); // define hostname
-    myIP = mws.startWiFi(AP_TIMEOUT * 1000, HOSTNAME.c_str(), "12345678");
-    isConnected = !(myIP == IPAddress(192, 168, 4, 1));
+    uint32_t connectTimeout = AP_TIMEOUT * 1000UL;
+    if (connectTimeout > 10000UL)
+        connectTimeout = 10000UL;
+    myIP = mws.startWiFi(connectTimeout, HOSTNAME.c_str(), "12345678");
+    isConnected = WiFi.status() == WL_CONNECTED && !(myIP == IPAddress(192, 168, 4, 1));
     if (DEBUG_MODE)
         DEBUG_PRINTF("My IP: %d.%d.%d.%d", myIP[0], myIP[1], myIP[2], myIP[3]);
     mws.setAuth(AUTH_USER, AUTH_PASS);
@@ -253,35 +269,48 @@ void ServerManager_::setup()
         if (DEBUG_MODE)
             DEBUG_PRINTLN(F("Webserver loaded"));
     }
+    else if (DEBUG_MODE)
+    {
+        DEBUG_PRINTLN(F("WiFi not connected; running offline with local RTC time when available"));
+    }
     mws.addHandler("/version", HTTP_GET, versionHandler);
     mws.begin(WEB_PORT);
 
-    if (!MDNS.begin(HOSTNAME))
+    if (isConnected)
     {
-        if (DEBUG_MODE)
-            DEBUG_PRINTLN(F("Error starting mDNS"));
-    }
-    else
-    {
-        MDNS.addService("http", "tcp", 80);
-        MDNS.addService("awtrix", "tcp", 80);
-        MDNS.addServiceTxt("awtrix", "tcp", "id", uniqueID);
-        MDNS.addServiceTxt("awtrix", "tcp", "name", HOSTNAME.c_str());
-        MDNS.addServiceTxt("awtrix", "tcp", "type", "awtrix3");
-    }
+        if (!MDNS.begin(HOSTNAME))
+        {
+            if (DEBUG_MODE)
+                DEBUG_PRINTLN(F("Error starting mDNS"));
+        }
+        else
+        {
+            MDNS.addService("http", "tcp", WEB_PORT);
+            MDNS.addService("awtrix", "tcp", WEB_PORT);
+            MDNS.addServiceTxt("awtrix", "tcp", "id", uniqueID);
+            MDNS.addServiceTxt("awtrix", "tcp", "name", HOSTNAME.c_str());
+            MDNS.addServiceTxt("awtrix", "tcp", "type", "awtrix3");
+        }
 
-    configTzTime(NTP_TZ.c_str(), NTP_SERVER.c_str());
-    tm timeInfo;
-    getLocalTime(&timeInfo);
-    TCPserver.begin();
-    TCPserver.setNoDelay(true);
+        configTzTime(NTP_TZ.c_str(), NTP_SERVER.c_str());
+        tm timeInfo;
+        getLocalTime(&timeInfo);
+        TCPserver.begin();
+        TCPserver.setNoDelay(true);
+    }
 }
 
 void ServerManager_::tick()
 {
+    if (!WIFI_ENABLED)
+        return;
+
     mws.run();
 
-    if (!AP_MODE)
+    if (!isConnected)
+        return;
+
+    if (isConnected)
     {
         int packetSize = udp.parsePacket();
         if (packetSize)
@@ -343,6 +372,9 @@ void ServerManager_::tick()
 
 void ServerManager_::sendTCP(String message)
 {
+    if (!WIFI_ENABLED || !isConnected)
+        return;
+
     if (currentClient && currentClient.connected()) {
         currentClient.print(message);
     }
@@ -392,7 +424,7 @@ void ServerManager_::loadSettings()
 
 void ServerManager_::sendButton(byte btn, bool state)
 {
-    if (BUTTON_CALLBACK == "")
+    if (!WIFI_ENABLED || !isConnected || WiFi.status() != WL_CONNECTED || BUTTON_CALLBACK == "")
         return;
     static bool btn0State, btn1State, btn2State;
     String payload;
@@ -402,21 +434,21 @@ void ServerManager_::sendButton(byte btn, bool state)
         if (btn0State != state)
         {
             btn0State = state;
-            payload = "button=left&state=" + String(state) + "&uid=" + uniqueID;
+            payload = "button=left&state=" + String(state);
         }
         break;
     case 1:
         if (btn1State != state)
         {
             btn1State = state;
-            payload = "button=middle&state=" + String(state) + "&uid=" + uniqueID;
+            payload = "button=middle&state=" + String(state);
         }
         break;
     case 2:
         if (btn2State != state)
         {
             btn2State = state;
-            payload = "button=right&state=" + String(state) + "&uid=" + uniqueID;
+            payload = "button=right&state=" + String(state);
         }
         break;
     default:

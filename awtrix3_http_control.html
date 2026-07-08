@@ -1,0 +1,2337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AWTRIX 3 HTTP 控制台</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101312;
+      --bg-2: #171b19;
+      --panel: rgba(255, 255, 255, 0.055);
+      --panel-strong: rgba(255, 255, 255, 0.095);
+      --line: rgba(255, 255, 255, 0.13);
+      --line-strong: rgba(255, 255, 255, 0.24);
+      --text: #f4f0e8;
+      --muted: #b9b1a6;
+      --quiet: #7e877f;
+      --green: #3bd69f;
+      --yellow: #ffc861;
+      --red: #ff6a65;
+      --blue: #82a7ff;
+      --ink: #0b0d0c;
+      --shadow: 0 18px 52px rgba(0, 0, 0, 0.35);
+      --radius: 8px;
+      --nav-width: 240px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        linear-gradient(115deg, rgba(59, 214, 159, 0.08), transparent 28%),
+        linear-gradient(245deg, rgba(255, 200, 97, 0.08), transparent 26%),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 18px),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 18px),
+        var(--bg);
+      letter-spacing: 0;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+      transform: translateX(-120%);
+      animation: sweep 12s ease-in-out infinite;
+      opacity: 0.5;
+    }
+
+    @keyframes sweep {
+      0%, 24% { transform: translateX(-120%); }
+      46%, 100% { transform: translateX(120%); }
+    }
+
+    a {
+      color: var(--green);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: var(--nav-width) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 18px 14px;
+      border-right: 1px solid var(--line);
+      background: rgba(16, 19, 18, 0.86);
+      backdrop-filter: blur(16px);
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 8px 16px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 12px;
+    }
+
+    .brand-mark {
+      display: grid;
+      grid-template-columns: repeat(4, 8px);
+      grid-template-rows: repeat(4, 8px);
+      gap: 2px;
+      width: 38px;
+      height: 38px;
+      padding: 4px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: #090b0a;
+      box-shadow: inset 0 0 18px rgba(59, 214, 159, 0.1);
+    }
+
+    .brand-mark i {
+      display: block;
+      border-radius: 2px;
+      background: var(--quiet);
+      animation: pixelPulse 2.8s ease-in-out infinite;
+    }
+
+    .brand-mark i:nth-child(3n) { background: var(--green); animation-delay: -0.4s; }
+    .brand-mark i:nth-child(4n) { background: var(--yellow); animation-delay: -1s; }
+    .brand-mark i:nth-child(5n) { background: var(--red); animation-delay: -1.6s; }
+
+    @keyframes pixelPulse {
+      0%, 100% { opacity: 0.25; transform: scale(0.86); }
+      45% { opacity: 1; transform: scale(1); }
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 38px;
+      padding: 9px 10px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: 160ms ease;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      color: var(--text);
+      border-color: var(--line);
+      background: var(--panel);
+      transform: translateX(2px);
+    }
+
+    .nav small {
+      color: var(--quiet);
+    }
+
+    .memory {
+      margin-top: 18px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 22px clamp(16px, 3vw, 34px) 52px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+      gap: 22px;
+      align-items: stretch;
+      min-height: 220px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero h2 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.04;
+      max-width: 760px;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 780px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .device-bar {
+      display: grid;
+      grid-template-columns: 105px minmax(180px, 1fr) auto auto;
+      gap: 10px;
+      margin-top: 22px;
+      max-width: 900px;
+      align-items: center;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .screen-stage {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+      min-height: 220px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.035));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .matrix-shell {
+      padding: 12px;
+      border-radius: 8px;
+      background: #060706;
+      border: 1px solid rgba(255,255,255,0.11);
+      box-shadow: inset 0 0 26px rgba(0,0,0,0.85);
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(32, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 3px;
+      width: 100%;
+      aspect-ratio: 4 / 1;
+    }
+
+    .matrix span {
+      display: block;
+      border-radius: 2px;
+      background: #151817;
+      box-shadow: 0 0 0 transparent;
+      transition: background 140ms ease, box-shadow 140ms ease;
+    }
+
+    .matrix.idle span:nth-child(7n) {
+      background: rgba(59, 214, 159, 0.55);
+      box-shadow: 0 0 8px rgba(59, 214, 159, 0.42);
+      animation: idlePixel 3.5s ease-in-out infinite;
+    }
+
+    .matrix.idle span:nth-child(11n) {
+      background: rgba(255, 200, 97, 0.65);
+      box-shadow: 0 0 8px rgba(255, 200, 97, 0.36);
+      animation-delay: -1.4s;
+    }
+
+    .matrix.idle span:nth-child(17n) {
+      background: rgba(255, 106, 101, 0.65);
+      box-shadow: 0 0 8px rgba(255, 106, 101, 0.32);
+      animation-delay: -2.2s;
+    }
+
+    @keyframes idlePixel {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 1; }
+    }
+
+    .screen-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .section {
+      padding: 28px 0;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 16px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .section h3 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .section-head p {
+      max-width: 760px;
+      margin: 7px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .section-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .grid.wide {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .control,
+    .result-panel {
+      position: relative;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      animation: riseIn 260ms ease both;
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .control.changed {
+      border-color: rgba(59, 214, 159, 0.65);
+      box-shadow: 0 0 0 3px rgba(59, 214, 159, 0.12);
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .control-title {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .control-title strong {
+      font-size: 15px;
+    }
+
+    .control-title code {
+      color: var(--yellow);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .control-title span,
+    .hint {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .field + .field {
+      margin-top: 10px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      color: var(--text);
+      background: rgba(0, 0, 0, 0.22);
+      outline: 0;
+      transition: border 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.45;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(59, 214, 159, 0.7);
+      box-shadow: 0 0 0 3px rgba(59, 214, 159, 0.12);
+      background: rgba(0, 0, 0, 0.34);
+    }
+
+    input[type="color"] {
+      width: 48px;
+      height: 40px;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.22);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green);
+    }
+
+    .inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .inline > * {
+      min-width: 0;
+    }
+
+    .inline .grow {
+      flex: 1 1 auto;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: var(--panel-strong);
+      cursor: pointer;
+      transition: transform 140ms ease, background 140ms ease, border 140ms ease, box-shadow 140ms ease;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.14);
+      border-color: var(--line-strong);
+      text-decoration: none;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
+      color: #06100c;
+      border-color: rgba(59, 214, 159, 0.74);
+      background: linear-gradient(180deg, #63e9b6, #33c58f);
+      box-shadow: 0 10px 26px rgba(59, 214, 159, 0.18);
+    }
+
+    .btn.warn {
+      color: #180d02;
+      border-color: rgba(255, 200, 97, 0.82);
+      background: linear-gradient(180deg, #ffe29a, #ffc252);
+    }
+
+    .btn.danger {
+      color: #fff6f4;
+      border-color: rgba(255, 106, 101, 0.7);
+      background: rgba(255, 106, 101, 0.16);
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .toggle {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle .track {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.28);
+      transition: background 160ms ease, border 160ms ease;
+    }
+
+    .toggle .track::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .toggle input:checked + .track {
+      border-color: rgba(59, 214, 159, 0.72);
+      background: rgba(59, 214, 159, 0.22);
+    }
+
+    .toggle input:checked + .track::after {
+      transform: translateX(20px);
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(59, 214, 159, 0.58);
+    }
+
+    .include {
+      align-self: start;
+      flex: 0 0 auto;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0.18);
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--quiet);
+      box-shadow: 0 0 0 transparent;
+    }
+
+    .status-dot.ok {
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(59, 214, 159, 0.8);
+    }
+
+    .status-dot.fail {
+      background: var(--red);
+      box-shadow: 0 0 12px rgba(255, 106, 101, 0.7);
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .three {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .subhead {
+      margin: 18px 0 10px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .result-panel {
+      margin-top: 14px;
+    }
+
+    .result-panel pre {
+      max-height: 320px;
+      overflow: auto;
+      margin: 10px 0 0;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.34);
+      color: #e8efe9;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      display: grid;
+      gap: 8px;
+      z-index: 50;
+      width: min(430px, calc(100vw - 36px));
+      pointer-events: none;
+    }
+
+    .toast-item {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(17, 20, 19, 0.94);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      animation: toastIn 240ms ease both;
+      pointer-events: auto;
+    }
+
+    .toast-item.success { border-color: rgba(59, 214, 159, 0.52); }
+    .toast-item.error { border-color: rgba(255, 106, 101, 0.58); }
+    .toast-item.warn { border-color: rgba(255, 200, 97, 0.58); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .kbd {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-bottom-color: rgba(255,255,255,0.28);
+      border-radius: 5px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.06);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+    }
+
+    .danger-zone {
+      border-color: rgba(255, 106, 101, 0.28);
+      background: rgba(255, 106, 101, 0.055);
+    }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      min-height: 92px;
+      color: var(--quiet);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      text-align: center;
+      padding: 16px;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: sticky;
+        height: auto;
+        max-height: none;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        padding-bottom: 12px;
+      }
+
+      .nav {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-stage {
+        min-height: 170px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .main {
+        padding-inline: 12px;
+      }
+
+      .device-bar {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: grid;
+      }
+
+      .section-actions {
+        justify-content: flex-start;
+      }
+
+      .two,
+      .three {
+        grid-template-columns: 1fr;
+      }
+
+      .inline.mobile-stack {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <div>
+          <h1>AWTRIX 3</h1>
+          <p>HTTP API 控制台</p>
+        </div>
+      </div>
+      <nav class="nav" id="nav">
+        <a href="#status">状态与屏幕 <small>GET</small></a>
+        <a href="#power">电源与声音 <small>POST</small></a>
+        <a href="#lights">灯光与指示 <small>RGB</small></a>
+        <a href="#custom">自定义与通知 <small>JSON</small></a>
+        <a href="#switching">应用切换 <small>Loop</small></a>
+        <a href="#settings">系统设置 <small>Settings</small></a>
+        <a href="#maintenance">维护操作 <small>Careful</small></a>
+        <a href="#logs">日志与记忆 <small>Local</small></a>
+      </nav>
+      <div class="memory">
+        <div class="pill"><span class="status-dot" id="memoryDot"></span><span id="memoryText">正在载入记忆</span></div>
+        <p>设备地址、表单值、当前分类、滚动位置和最后改动的控件会保存在本浏览器。</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="hero">
+        <div>
+          <h2>一个文件完成 AWTRIX 3 远程操控与设置调整。</h2>
+          <p>覆盖官方 API 文档中的 HTTP 端点：状态读取、LiveView、开关与休眠、声音播放、氛围灯、指示灯、自定义 App、通知、应用切换、系统设置和维护操作。</p>
+          <div class="device-bar">
+            <select id="protocol" data-save aria-label="协议">
+              <option value="http">http</option>
+              <option value="https">https</option>
+            </select>
+            <input id="deviceIp" data-save type="text" inputmode="url" placeholder="设备 IP，例如 192.168.1.50 或 192.168.1.50:80" aria-label="设备 IP">
+            <button class="btn primary" id="saveDeviceBtn" type="button">保存设备</button>
+            <span class="pill"><span class="status-dot" id="statusDot"></span><span id="connectionState">未连接</span></span>
+          </div>
+          <div class="hero-actions">
+            <button class="btn" type="button" data-action="get" data-path="/api/stats">读取状态</button>
+            <button class="btn" type="button" id="openDeviceBtn">打开设备网页</button>
+            <label class="toggle">
+              <input type="checkbox" id="noCorsFallback" data-save checked>
+              <span class="track"></span>
+              POST 兼容发送
+            </label>
+          </div>
+        </div>
+        <div class="screen-stage">
+          <div class="matrix-shell">
+            <div class="matrix idle" id="screenMatrix" aria-label="AWTRIX 屏幕预览"></div>
+          </div>
+          <div class="screen-meta">
+            <span id="screenMeta">等待 /api/screen 数据</span>
+            <span>32 x 8 LED Matrix</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="section" id="status">
+        <div class="section-head">
+          <div>
+            <h3>状态与屏幕</h3>
+            <p>读取设备统计、效果列表、过渡效果、循环应用和当前矩阵画面。LiveView 链接会直接打开设备内置页面。</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn" type="button" data-action="get" data-path="/api/stats">Stats</button>
+            <button class="btn" type="button" data-action="get" data-path="/api/effects">Effects</button>
+            <button class="btn" type="button" data-action="get" data-path="/api/transitions">Transitions</button>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>设备统计</strong>
+                <code>GET /api/stats</code>
+                <span>电量、RAM、当前 App 等设备状态。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" data-action="get" data-path="/api/stats">读取统计</button>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>效果与过渡</strong>
+                <code>GET /api/effects /api/transitions</code>
+                <span>用于自定义 App 背景效果和全局切换动画。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn" type="button" data-action="get" data-path="/api/effects">效果列表</button>
+              <button class="btn" type="button" data-action="get" data-path="/api/transitions">过渡列表</button>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>循环应用</strong>
+                <code>GET /api/loop</code>
+                <span>读取当前轮播队列中的 App。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn" type="button" data-action="get" data-path="/api/loop">读取 Loop</button>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>屏幕快照</strong>
+                <code>GET /api/screen</code>
+                <span>读取 24-bit 色值数组，并渲染到上方矩阵预览。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="readScreenBtn">读取屏幕</button>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>LiveView</strong>
+                <code>/screen /fullscreen</code>
+                <span>打开 AWTRIX 内置实时画面页面。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="fullscreenFps">Fullscreen FPS</label>
+              <input id="fullscreenFps" data-save type="number" min="1" max="60" value="30">
+            </div>
+            <div class="button-row">
+              <button class="btn" type="button" data-open-path="/screen">打开 /screen</button>
+              <button class="btn" type="button" id="openFullscreenBtn">打开 /fullscreen</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="power">
+        <div class="section-head">
+          <div>
+            <h3>电源与声音</h3>
+            <p>控制矩阵开关、让设备进入深度睡眠、播放 MELODIES 文件夹内的声音，或直接发送 RTTTL 字符串。</p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="control" data-lastable="powerState">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>矩阵电源</strong>
+                <code>POST /api/power</code>
+                <span>发送 {"power": true/false}。</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="powerState" data-save checked>
+                <span class="track"></span>
+                开启
+              </label>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="sendPowerBtn">发送开关状态</button>
+              <button class="btn" type="button" id="powerOnBtn">立即开启</button>
+              <button class="btn" type="button" id="powerOffBtn">立即关闭</button>
+            </div>
+          </div>
+          <div class="control" data-lastable="sleepSeconds">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>深度睡眠</strong>
+                <code>POST /api/sleep</code>
+                <span>设备只能按时间或中键唤醒，API 无法远程唤醒。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="sleepSeconds">睡眠秒数</label>
+              <input id="sleepSeconds" data-save type="number" min="1" value="60">
+            </div>
+            <div class="button-row">
+              <button class="btn warn" type="button" id="sendSleepBtn">进入睡眠</button>
+            </div>
+          </div>
+          <div class="control" data-lastable="soundName">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>播放声音文件</strong>
+                <code>POST /api/sound</code>
+                <span>RTTTL 文件名无需扩展名；DFPlayer 可填 4 位 MP3 编号。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="soundName">声音名或 MP3 编号</label>
+              <input id="soundName" data-save type="text" placeholder="alarm 或 0001">
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="sendSoundBtn">播放</button>
+            </div>
+          </div>
+          <div class="control" data-lastable="rtttlText">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>发送 RTTTL</strong>
+                <code>POST /api/rtttl</code>
+                <span>直接发送 RTTTL 字符串正文。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="rtttlText">RTTTL 字符串</label>
+              <textarea id="rtttlText" data-save placeholder="alarm:d=4,o=5,b=140:8c,8e,8g"></textarea>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="sendRtttlBtn">发送 RTTTL</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="lights">
+        <div class="section-head">
+          <div>
+            <h3>灯光与指示</h3>
+            <p>设置整屏氛围灯，或调整右侧三枚彩色指示灯。指示灯可附加 blink / fade 毫秒间隔。</p>
+          </div>
+        </div>
+        <div class="grid wide">
+          <div class="control" data-lastable="moodMode">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>氛围灯</strong>
+                <code>POST /api/moodlight</code>
+                <span>可使用 RGB 颜色或 Kelvin 色温；关闭时发送空 body。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="moodBrightness">亮度 0-255</label>
+              <div class="inline">
+                <input id="moodBrightness" data-save class="grow" type="range" min="0" max="255" value="170">
+                <input id="moodBrightnessNumber" data-save type="number" min="0" max="255" value="170" style="max-width: 90px;">
+              </div>
+            </div>
+            <div class="field">
+              <label for="moodMode">模式</label>
+              <select id="moodMode" data-save>
+                <option value="color">RGB / HEX 颜色</option>
+                <option value="kelvin">Kelvin 色温</option>
+              </select>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="moodColor">颜色</label>
+                <div class="inline">
+                  <input id="moodColor" data-save type="color" value="#ff00ff">
+                  <input id="moodColorText" data-save class="grow" type="text" value="#FF00FF">
+                </div>
+              </div>
+              <div class="field">
+                <label for="moodKelvin">Kelvin</label>
+                <input id="moodKelvin" data-save type="number" min="1000" max="12000" value="2300">
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="sendMoodBtn">应用氛围灯</button>
+              <button class="btn" type="button" id="disableMoodBtn">关闭氛围灯</button>
+            </div>
+          </div>
+          <div class="control" data-lastable="indicator1Color">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>指示灯 1</strong>
+                <code>POST /api/indicator1</code>
+                <span>右上角。</span>
+              </div>
+            </div>
+            <div id="indicator1"></div>
+          </div>
+          <div class="control" data-lastable="indicator2Color">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>指示灯 2</strong>
+                <code>POST /api/indicator2</code>
+                <span>右侧中部。</span>
+              </div>
+            </div>
+            <div id="indicator2"></div>
+          </div>
+          <div class="control" data-lastable="indicator3Color">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>指示灯 3</strong>
+                <code>POST /api/indicator3</code>
+                <span>右下角。</span>
+              </div>
+            </div>
+            <div id="indicator3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="custom">
+        <div class="section-head">
+          <div>
+            <h3>自定义 App 与通知</h3>
+            <p>按官方 JSON 属性构建 payload。勾选“包含”后才会发送该字段；编辑字段会自动勾选。高级 JSON 可用于彩色文本片段、多页面数组或更复杂的 draw 数据。</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn" type="button" id="previewCustomBtn">预览 JSON</button>
+            <button class="btn primary" type="button" id="sendCustomBtn">发送 Custom App</button>
+            <button class="btn primary" type="button" id="sendNotifyBtn">发送通知</button>
+          </div>
+        </div>
+        <div class="grid wide">
+          <div class="control" data-lastable="customAppName">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>发送目标</strong>
+                <code>/api/custom?name= /api/notify</code>
+                <span>Custom App 需要 name；Notify 不需要。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="customAppName">Custom App 名称</label>
+              <input id="customAppName" data-save type="text" placeholder="myapp">
+            </div>
+            <div class="field">
+              <label class="toggle">
+                <input type="checkbox" id="useRawCustomJson" data-save>
+                <span class="track"></span>
+                使用高级 JSON 文本框作为 payload
+              </label>
+            </div>
+            <div class="field">
+              <label for="rawCustomJson">高级 JSON</label>
+              <textarea id="rawCustomJson" data-save placeholder='{"text":"Hello, AWTRIX 3!","rainbow":true,"duration":10}'></textarea>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="sendCustomBtn2">发送 Custom App</button>
+              <button class="btn" type="button" id="deleteCustomBtn">删除 Custom App</button>
+              <button class="btn" type="button" id="sendNotifyBtn2">发送通知</button>
+              <button class="btn" type="button" id="dismissNotifyBtn">关闭保留通知</button>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>JSON 预览</strong>
+                <code>Payload</code>
+                <span>发送前可检查最终 body。</span>
+              </div>
+            </div>
+            <pre id="customPreview" style="min-height: 300px; margin: 0; white-space: pre-wrap;"></pre>
+          </div>
+        </div>
+        <h4 class="subhead">显示与动画</h4>
+        <div class="grid wide" id="customDisplayProps"></div>
+        <h4 class="subhead">通知专属</h4>
+        <div class="grid wide" id="customNotifyProps"></div>
+        <h4 class="subhead">图表、绘图与持久化</h4>
+        <div class="grid wide" id="customDataProps"></div>
+      </section>
+
+      <section class="section" id="switching">
+        <div class="section-head">
+          <div>
+            <h3>应用切换</h3>
+            <p>切换到上一个或下一个 App，也可以按内置名称或自定义名称直接跳转。</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn" type="button" data-action="emptyPost" data-path="/api/previousapp">上一个</button>
+            <button class="btn" type="button" data-action="emptyPost" data-path="/api/nextapp">下一个</button>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="control" data-lastable="switchBuiltin">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>内置 App</strong>
+                <code>POST /api/switch</code>
+                <span>Time、Date、Temperature、Humidity、Battery。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="switchBuiltin">App</label>
+              <select id="switchBuiltin" data-save>
+                <option>Time</option>
+                <option>Date</option>
+                <option>Temperature</option>
+                <option>Humidity</option>
+                <option>Battery</option>
+              </select>
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="switchBuiltinBtn">切换</button>
+            </div>
+          </div>
+          <div class="control" data-lastable="switchCustom">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>自定义 App</strong>
+                <code>POST /api/switch</code>
+                <span>填入你在 Custom API 中使用的 app 名称。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="switchCustom">自定义 App 名称</label>
+              <input id="switchCustom" data-save type="text" placeholder="myapp">
+            </div>
+            <div class="button-row">
+              <button class="btn primary" type="button" id="switchCustomBtn">切换</button>
+            </div>
+          </div>
+          <div class="control">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>轮播导航</strong>
+                <code>/api/nextapp /api/previousapp</code>
+                <span>发送空 payload。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn" type="button" data-action="emptyPost" data-path="/api/previousapp">上一个 App</button>
+              <button class="btn" type="button" data-action="emptyPost" data-path="/api/nextapp">下一个 App</button>
+              <button class="btn" type="button" data-action="get" data-path="/api/loop">读取 Loop</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="settings">
+        <div class="section-head">
+          <div>
+            <h3>系统设置</h3>
+            <p>对应 <span class="kbd">/api/settings</span> 的全部 JSON 属性。只发送勾选的字段，便于小范围修改；读取当前设置会尝试自动填充表单。</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn" type="button" id="readSettingsBtn">读取设置</button>
+            <button class="btn" type="button" id="selectAllSettingsBtn">全选</button>
+            <button class="btn" type="button" id="clearAllSettingsBtn">全不选</button>
+            <button class="btn primary" type="button" id="sendSelectedSettingsBtn">发送选中设置</button>
+          </div>
+        </div>
+        <div class="grid wide" id="settingsGrid"></div>
+      </section>
+
+      <section class="section" id="maintenance">
+        <div class="section-head">
+          <div>
+            <h3>维护操作</h3>
+            <p>包含更新、重启、格式化与清空 Settings API 设置。危险动作会二次确认。</p>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="control" data-lastable="updatePayload">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>触发更新</strong>
+                <code>POST /api/doupdate</code>
+                <span>文档标注可发送 JSON；为空时发送空 body。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="updatePayload">可选 JSON</label>
+              <textarea id="updatePayload" data-save placeholder='{}'></textarea>
+            </div>
+            <div class="button-row">
+              <button class="btn warn" type="button" id="doUpdateBtn">触发更新</button>
+            </div>
+          </div>
+          <div class="control" data-lastable="rebootConfirm">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>重启设备</strong>
+                <code>POST /api/reboot</code>
+                <span>发送空 payload。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn warn" type="button" id="rebootBtn">重启</button>
+            </div>
+          </div>
+          <div class="control danger-zone">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>格式化 Flash 与 EEPROM</strong>
+                <code>POST /api/erase</code>
+                <span>不会修改 Wi-Fi 设置，但相当于设备数据层面的恢复出厂。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn danger" type="button" id="eraseBtn">格式化设备</button>
+            </div>
+          </div>
+          <div class="control danger-zone">
+            <div class="control-header">
+              <div class="control-title">
+                <strong>清空设置</strong>
+                <code>POST /api/resetSettings</code>
+                <span>只重置 Settings API 设置，不清除 flash 文件和 Wi-Fi。</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="btn danger" type="button" id="resetSettingsBtn">清空设置</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="logs">
+        <div class="section-head">
+          <div>
+            <h3>日志与记忆</h3>
+            <p>查看请求结果、复制响应、导出或清除本地记忆。记忆只存放在当前浏览器的 localStorage。</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn" type="button" id="copyResultBtn">复制响应</button>
+            <button class="btn" type="button" id="exportMemoryBtn">导出记忆</button>
+            <button class="btn danger" type="button" id="clearMemoryBtn">清除记忆</button>
+          </div>
+        </div>
+        <div class="result-panel">
+          <strong>请求 / 响应</strong>
+          <pre id="resultOutput">尚未发送请求。</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STORE_KEY = "awtrix3-http-console-v1";
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+    const effects = [
+      "", "BrickBreaker", "Checkerboard", "Fireworks", "PingPong", "Radar", "Ripple",
+      "Snake", "TwinklingStars", "TheaterChase", "ColorWaves", "SwirlOut", "SwirlIn",
+      "LookingEyes", "Matrix", "Pacifica", "Plasma", "PlasmaCloud", "MovingLine", "Fade"
+    ];
+    const palettes = ["Rainbow", "Cloud", "Lava", "Ocean", "Forest", "Stripe", "Party", "Heat"];
+    const overlays = ["", "clear", "snow", "rain", "drizzle", "storm", "thunder", "frost"];
+    const timeFormats = [
+      "%H:%M:%S", "%l:%M:%S", "%H:%M", "%H %M", "%l:%M", "%l %M", "%l:%M %p", "%l %M %p"
+    ];
+    const dateFormats = [
+      "%d.%m.%y", "%d.%m", "%y-%m-%d", "%m-%d", "%m/%d/%y", "%m/%d", "%d/%m/%y", "%d/%m", "%m-%d-%y"
+    ];
+    const transitionOptions = [
+      ["0", "0 - Random"], ["1", "1 - Slide"], ["2", "2 - Dim"], ["3", "3 - Zoom"],
+      ["4", "4 - Rotate"], ["5", "5 - Pixelate"], ["6", "6 - Curtain"], ["7", "7 - Ripple"],
+      ["8", "8 - Blink"], ["9", "9 - Reload"], ["10", "10 - Fade"]
+    ];
+
+    const settingFields = [
+      { key: "ATIME", kind: "number", label: "App 显示时长", desc: "每个 app 显示的秒数。", min: 1, step: 1, value: 7 },
+      { key: "TEFF", kind: "select", label: "过渡效果", desc: "App 切换动画。", options: transitionOptions, numeric: true, value: "1" },
+      { key: "TSPEED", kind: "range", label: "过渡速度", desc: "切换到下个 App 的毫秒数。", min: 0, max: 5000, step: 50, value: 500 },
+      { key: "TCOL", kind: "color", label: "全局文本颜色", desc: "HEX、RGB 数组或 0。", value: "#FFFFFF" },
+      { key: "TMODE", kind: "select", label: "Time App 样式", desc: "时间 App 的显示样式 0-6。", options: [["0","0"],["1","1"],["2","2"],["3","3"],["4","4"],["5","5"],["6","6"]], numeric: true, value: "1" },
+      { key: "CHCOL", kind: "color", label: "日历头部颜色", desc: "Time App 日历头部颜色。", value: "#FF0000" },
+      { key: "CBCOL", kind: "color", label: "日历主体颜色", desc: "Time App 日历主体颜色。", value: "#FFFFFF" },
+      { key: "CTCOL", kind: "color", label: "日历文字颜色", desc: "Time App 日历文字颜色。", value: "#000000" },
+      { key: "WD", kind: "boolean", label: "显示星期", desc: "启用或关闭 weekday 显示。", value: true },
+      { key: "WDCA", kind: "color", label: "当前星期颜色", desc: "活跃 weekday 颜色。", value: "#3BD69F" },
+      { key: "WDCI", kind: "color", label: "非当前星期颜色", desc: "非活跃 weekday 颜色。", value: "#565F58" },
+      { key: "BRI", kind: "range", label: "矩阵亮度", desc: "亮度 0-255。", min: 0, max: 255, step: 1, value: 128 },
+      { key: "ABRI", kind: "boolean", label: "自动亮度", desc: "根据传感器自动控制亮度。", value: false },
+      { key: "ATRANS", kind: "boolean", label: "自动切换 App", desc: "自动切换到下一个 app。", value: true },
+      { key: "CCORRECTION", kind: "rgb", label: "颜色校正", desc: "RGB 数组，例如 [255,255,255]。", value: [255,255,255] },
+      { key: "CTEMP", kind: "rgb", label: "颜色温度", desc: "RGB 数组，例如 [255,255,255]。", value: [255,255,255] },
+      { key: "TFORMAT", kind: "select", label: "时间格式", desc: "TimeApp strftime 格式。", options: timeFormats.map(v => [v, v]), value: "%H:%M" },
+      { key: "DFORMAT", kind: "select", label: "日期格式", desc: "DateApp strftime 格式。", options: dateFormats.map(v => [v, v]), value: "%d.%m.%y" },
+      { key: "SOM", kind: "boolean", label: "周一作为一周开始", desc: "Start of Monday。", value: true },
+      { key: "CEL", kind: "boolean", label: "摄氏温度", desc: "关闭后显示华氏温度。", value: true },
+      { key: "BLOCKN", kind: "boolean", label: "锁定物理导航键", desc: "按键仍会发送到 MQTT。", value: false },
+      { key: "UPPERCASE", kind: "boolean", label: "强制大写", desc: "全局文本大写。", value: true },
+      { key: "TIME_COL", kind: "color", label: "时间 App 文字色", desc: "填 0 使用全局文字色。", value: "0" },
+      { key: "DATE_COL", kind: "color", label: "日期 App 文字色", desc: "填 0 使用全局文字色。", value: "0" },
+      { key: "TEMP_COL", kind: "color", label: "温度 App 文字色", desc: "填 0 使用全局文字色。", value: "0" },
+      { key: "HUM_COL", kind: "color", label: "湿度 App 文字色", desc: "填 0 使用全局文字色。", value: "0" },
+      { key: "BAT_COL", kind: "color", label: "电池 App 文字色", desc: "填 0 使用全局文字色。", value: "0" },
+      { key: "SSPEED", kind: "range", label: "滚动速度", desc: "原始速度百分比。", min: 10, max: 500, step: 5, value: 100 },
+      { key: "TIM", kind: "boolean", label: "启用时间 App", desc: "需要重启。", value: true },
+      { key: "DAT", kind: "boolean", label: "启用日期 App", desc: "需要重启。", value: true },
+      { key: "HUM", kind: "boolean", label: "启用湿度 App", desc: "需要重启。", value: true },
+      { key: "TEMP", kind: "boolean", label: "启用温度 App", desc: "需要重启。", value: true },
+      { key: "BAT", kind: "boolean", label: "启用电池 App", desc: "需要重启。", value: true },
+      { key: "MATP", kind: "boolean", label: "启用矩阵", desc: "类似 power 端点，但没有动画。", value: true },
+      { key: "VOL", kind: "range", label: "音量", desc: "Buzzer / DFPlayer 音量 0-30。", min: 0, max: 30, step: 1, value: 15 },
+      { key: "OVERLAY", kind: "select", label: "全局 Overlay", desc: "不能与 App 专属 overlay 同时使用。", options: overlays.map(v => [v, v || "无"]), value: "" }
+    ];
+
+    const customProps = [
+      { key: "text", group: "display", kind: "textOrJson", label: "文本", desc: "字符串，或彩色片段 JSON 数组。", value: "Hello, AWTRIX 3!" },
+      { key: "textCase", group: "display", kind: "select", label: "大小写模式", desc: "0=全局，1=强制大写，2=按发送内容显示。", options: [["0","0 - 全局"],["1","1 - 强制大写"],["2","2 - 原样显示"]], numeric: true, value: "0" },
+      { key: "topText", group: "display", kind: "boolean", label: "文字置顶", desc: "将文本绘制在顶部。", value: false },
+      { key: "textOffset", group: "display", kind: "number", label: "文字 X 偏移", desc: "起始文本 x 位置偏移。", value: 0 },
+      { key: "center", group: "display", kind: "boolean", label: "短文本居中", desc: "短且不滚动时居中显示。", value: true },
+      { key: "color", group: "display", kind: "color", label: "文本 / 条形 / 线条颜色", desc: "HEX 或 RGB 数组。", value: "#FFFFFF" },
+      { key: "gradient", group: "display", kind: "gradient", label: "渐变文字", desc: "两个颜色值组成的数组。", value: ["#3BD69F", "#FFC861"] },
+      { key: "blinkText", group: "display", kind: "number", label: "文字闪烁间隔", desc: "毫秒；不能与 gradient 或 rainbow 同用。", value: 700 },
+      { key: "fadeText", group: "display", kind: "number", label: "文字淡入淡出间隔", desc: "毫秒；不能与 gradient 或 rainbow 同用。", value: 900 },
+      { key: "background", group: "display", kind: "color", label: "背景色", desc: "HEX 或 RGB 数组。", value: "#000000" },
+      { key: "rainbow", group: "display", kind: "boolean", label: "彩虹文字", desc: "每个字母以 RGB 光谱淡变。", value: false },
+      { key: "icon", group: "display", kind: "text", label: "图标", desc: "图标 ID、文件名或 8x8 JPG Base64。", value: "" },
+      { key: "pushIcon", group: "display", kind: "select", label: "图标滚动方式", desc: "0=不动，1=随文字移走，2=随文字循环出现。", options: [["0","0 - 不移动"],["1","1 - 随文字移走"],["2","2 - 循环出现"]], numeric: true, value: "0" },
+      { key: "repeat", group: "display", kind: "number", label: "滚动重复次数", desc: "-1 表示一直重复。", value: -1 },
+      { key: "duration", group: "display", kind: "number", label: "显示时长", desc: "App 或通知显示秒数。", value: 5 },
+      { key: "noScroll", group: "display", kind: "boolean", label: "禁用滚动", desc: "关闭文本滚动。", value: false },
+      { key: "scrollSpeed", group: "display", kind: "number", label: "滚动速度", desc: "原始滚动速度百分比。", value: 100 },
+      { key: "effect", group: "display", kind: "effect", label: "背景效果", desc: "发送空字符串可移除效果。", value: "" },
+      { key: "effectSettings", group: "display", kind: "json", label: "效果设置", desc: "例如 speed、palette、blend。", value: "{\"speed\":3,\"palette\":\"Rainbow\",\"blend\":true}" },
+      { key: "overlay", group: "display", kind: "select", label: "App Overlay", desc: "App 专属 overlay，不能与全局 overlay 同用。", options: overlays.map(v => [v, v || "无"]), value: "" },
+      { key: "hold", group: "notify", kind: "boolean", label: "保留通知", desc: "直到按中键或 dismiss。仅通知。", value: false },
+      { key: "sound", group: "notify", kind: "text", label: "通知声音", desc: "MELODIES 文件名或 DFPlayer 4 位编号。", value: "" },
+      { key: "rtttl", group: "notify", kind: "textarea", label: "通知 RTTTL", desc: "通知内携带 RTTTL 字符串。", value: "" },
+      { key: "loopSound", group: "notify", kind: "boolean", label: "循环声音", desc: "通知存在期间循环播放。", value: false },
+      { key: "stack", group: "notify", kind: "boolean", label: "堆叠通知", desc: "false 会立即替换当前通知。", value: true },
+      { key: "wakeup", group: "notify", kind: "boolean", label: "唤醒矩阵", desc: "矩阵关闭时为通知短暂唤醒。", value: false },
+      { key: "clients", group: "notify", kind: "csv", label: "转发客户端", desc: "逗号分隔；MQTT prefix 或 HTTP IP。", value: "" },
+      { key: "bar", group: "data", kind: "numbers", label: "柱状图", desc: "逗号分隔整数，最多 16 个；有 icon 时最多 11 个。", value: "4,8,12,16" },
+      { key: "line", group: "data", kind: "numbers", label: "折线图", desc: "逗号分隔整数，最多 16 个；有 icon 时最多 11 个。", value: "" },
+      { key: "autoscale", group: "data", kind: "boolean", label: "图表自动缩放", desc: "bar / line 的自动缩放。", value: true },
+      { key: "barBC", group: "data", kind: "color", label: "柱状图背景色", desc: "背景条颜色。", value: "#000000" },
+      { key: "progress", group: "data", kind: "number", label: "进度条", desc: "0-100；-1 不显示。", min: -1, max: 100, value: -1 },
+      { key: "progressC", group: "data", kind: "color", label: "进度条颜色", desc: "进度条前景色。", value: "#3BD69F" },
+      { key: "progressBC", group: "data", kind: "color", label: "进度条背景色", desc: "进度条背景色。", value: "#202522" },
+      { key: "draw", group: "data", kind: "json", label: "绘图指令", desc: "draw 数组，包含 dp/dl/dr/df/dc/dfc/dt/db。", value: "[{\"dc\":[28,4,3,\"#FF0000\"]}]" },
+      { key: "pos", group: "data", kind: "number", label: "Custom App 位置", desc: "第一次 push 时生效，实验功能。仅 Custom App。", value: 0 },
+      { key: "lifetime", group: "data", kind: "number", label: "Custom App 生命周期", desc: "多少秒无更新后移除。仅 Custom App。", value: 0 },
+      { key: "lifetimeMode", group: "data", kind: "select", label: "生命周期模式", desc: "0=删除 app，1=红框标记过期。仅 Custom App。", options: [["0","0 - 删除"],["1","1 - 标记过期"]], numeric: true, value: "0" },
+      { key: "save", group: "data", kind: "boolean", label: "保存 Custom App", desc: "保存到 flash，避免高频写入。仅 Custom App。", value: false }
+    ];
+
+    function makeMatrix() {
+      const matrix = $("#screenMatrix");
+      matrix.innerHTML = "";
+      for (let i = 0; i < 256; i += 1) {
+        matrix.appendChild(document.createElement("span"));
+      }
+    }
+
+    function renderIndicator(index) {
+      const host = $(`#indicator${index}`);
+      host.innerHTML = `
+        <div class="field">
+          <label for="indicator${index}Color">颜色</label>
+          <div class="inline">
+            <input id="indicator${index}Color" data-save type="color" value="${index === 1 ? "#ff0000" : index === 2 ? "#00ff00" : "#0088ff"}">
+            <input id="indicator${index}Text" data-save class="grow" type="text" value="${index === 1 ? "#FF0000" : index === 2 ? "#00FF00" : "#0088FF"}">
+          </div>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="indicator${index}Blink">Blink ms</label>
+            <input id="indicator${index}Blink" data-save type="number" min="0" value="0">
+          </div>
+          <div class="field">
+            <label for="indicator${index}Fade">Fade ms</label>
+            <input id="indicator${index}Fade" data-save type="number" min="0" value="0">
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="btn primary" type="button" data-indicator-send="${index}">应用</button>
+          <button class="btn" type="button" data-indicator-hide="${index}">隐藏</button>
+          <button class="btn" type="button" data-indicator-empty="${index}">发送空 body</button>
+        </div>
+      `;
+    }
+
+    function fieldHeader(item, includeId) {
+      return `
+        <div class="control-header">
+          <div class="control-title">
+            <strong>${escapeHtml(item.label)}</strong>
+            <code>${escapeHtml(item.key)}</code>
+            <span>${escapeHtml(item.desc || "")}</span>
+          </div>
+          <label class="toggle include">
+            <input type="checkbox" id="${includeId}" data-save>
+            <span class="track"></span>
+            包含
+          </label>
+        </div>
+      `;
+    }
+
+    function renderSettings() {
+      const grid = $("#settingsGrid");
+      grid.innerHTML = settingFields.map(field => `
+        <div class="control" data-setting-card="${field.key}" data-lastable="setting_${field.key}">
+          ${fieldHeader(field, `setinc_${field.key}`)}
+          ${renderSettingControl(field)}
+        </div>
+      `).join("");
+    }
+
+    function renderSettingControl(field) {
+      const id = `setting_${field.key}`;
+      if (field.kind === "boolean") {
+        return `
+          <label class="toggle">
+            <input type="checkbox" id="${id}" data-save ${field.value ? "checked" : ""}>
+            <span class="track"></span>
+            ${field.value ? "默认开启" : "默认关闭"}
+          </label>
+        `;
+      }
+      if (field.kind === "select") {
+        return `
+          <div class="field">
+            <label for="${id}">值</label>
+            <select id="${id}" data-save>
+              ${field.options.map(([value, label]) => `<option value="${escapeAttr(value)}" ${String(field.value) === String(value) ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+            </select>
+          </div>
+        `;
+      }
+      if (field.kind === "range") {
+        return `
+          <div class="field">
+            <label for="${id}">值</label>
+            <div class="inline">
+              <input id="${id}" data-save class="grow" type="range" min="${field.min}" max="${field.max}" step="${field.step}" value="${field.value}">
+              <input id="${id}_number" data-save type="number" min="${field.min}" max="${field.max}" step="${field.step}" value="${field.value}" style="max-width: 96px;">
+            </div>
+          </div>
+        `;
+      }
+      if (field.kind === "color") {
+        const colorValue = normalizeHex(field.value) || "#FFFFFF";
+        return `
+          <div class="field">
+            <label for="${id}">颜色值</label>
+            <div class="inline">
+              <input id="${id}_picker" data-save type="color" value="${colorValue}">
+              <input id="${id}" data-save class="grow" type="text" value="${escapeAttr(String(field.value))}" placeholder="#FFFFFF、[255,255,255] 或 0">
+            </div>
+          </div>
+        `;
+      }
+      if (field.kind === "rgb") {
+        const hex = rgbToHex(field.value);
+        return `
+          <div class="field">
+            <label for="${id}">RGB 数组</label>
+            <div class="inline">
+              <input id="${id}_picker" data-save type="color" value="${hex}">
+              <input id="${id}" data-save class="grow" type="text" value="${escapeAttr(JSON.stringify(field.value))}" placeholder="[255,255,255]">
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div class="field">
+          <label for="${id}">值</label>
+          <input id="${id}" data-save type="number" min="${field.min ?? ""}" max="${field.max ?? ""}" step="${field.step ?? 1}" value="${field.value}">
+        </div>
+      `;
+    }
+
+    function renderCustomProps() {
+      const groups = {
+        display: $("#customDisplayProps"),
+        notify: $("#customNotifyProps"),
+        data: $("#customDataProps")
+      };
+      for (const [groupName, host] of Object.entries(groups)) {
+        host.innerHTML = customProps
+          .filter(prop => prop.group === groupName)
+          .map(prop => `
+            <div class="control" data-prop-card="${prop.key}" data-lastable="prop_${prop.key}">
+              ${fieldHeader(prop, `propinc_${prop.key}`)}
+              ${renderCustomControl(prop)}
+            </div>
+          `).join("");
+      }
+    }
+
+    function renderCustomControl(prop) {
+      const id = `prop_${prop.key}`;
+      if (prop.kind === "boolean") {
+        return `
+          <label class="toggle">
+            <input type="checkbox" id="${id}" data-save ${prop.value ? "checked" : ""}>
+            <span class="track"></span>
+            ${prop.value ? "默认 true" : "默认 false"}
+          </label>
+        `;
+      }
+      if (prop.kind === "select") {
+        return `
+          <div class="field">
+            <label for="${id}">值</label>
+            <select id="${id}" data-save>
+              ${prop.options.map(([value, label]) => `<option value="${escapeAttr(value)}" ${String(prop.value) === String(value) ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+            </select>
+          </div>
+        `;
+      }
+      if (prop.kind === "effect") {
+        return `
+          <div class="field">
+            <label for="${id}">效果</label>
+            <select id="${id}" data-save>
+              ${effects.map(value => `<option value="${escapeAttr(value)}" ${String(prop.value) === String(value) ? "selected" : ""}>${escapeHtml(value || "无 / 移除效果")}</option>`).join("")}
+            </select>
+          </div>
+        `;
+      }
+      if (prop.kind === "textarea" || prop.kind === "json") {
+        return `
+          <div class="field">
+            <label for="${id}">${prop.kind === "json" ? "JSON" : "文本"}</label>
+            <textarea id="${id}" data-save>${escapeHtml(prop.value || "")}</textarea>
+          </div>
+        `;
+      }
+      if (prop.kind === "textOrJson") {
+        return `
+          <div class="field">
+            <label for="${id}">文本内容</label>
+            <textarea id="${id}" data-save>${escapeHtml(prop.value || "")}</textarea>
+          </div>
+          <div class="field">
+            <label class="toggle">
+              <input type="checkbox" id="${id}_jsonMode" data-save>
+              <span class="track"></span>
+              将文本按 JSON 解析
+            </label>
+          </div>
+        `;
+      }
+      if (prop.kind === "color") {
+        const colorValue = normalizeHex(prop.value) || "#FFFFFF";
+        return `
+          <div class="field">
+            <label for="${id}">颜色值</label>
+            <div class="inline">
+              <input id="${id}_picker" data-save type="color" value="${colorValue}">
+              <input id="${id}" data-save class="grow" type="text" value="${escapeAttr(String(prop.value))}" placeholder="#FFFFFF 或 [255,255,255]">
+            </div>
+          </div>
+        `;
+      }
+      if (prop.kind === "gradient") {
+        return `
+          <div class="two">
+            <div class="field">
+              <label for="${id}_a">起始颜色</label>
+              <input id="${id}_a" data-save type="color" value="${prop.value[0]}">
+            </div>
+            <div class="field">
+              <label for="${id}_b">结束颜色</label>
+              <input id="${id}_b" data-save type="color" value="${prop.value[1]}">
+            </div>
+          </div>
+        `;
+      }
+      if (prop.kind === "numbers" || prop.kind === "csv") {
+        return `
+          <div class="field">
+            <label for="${id}">${prop.kind === "numbers" ? "数字列表" : "逗号分隔列表"}</label>
+            <input id="${id}" data-save type="text" value="${escapeAttr(prop.value || "")}" placeholder="${prop.kind === "numbers" ? "1,2,3" : "clientA,192.168.1.51"}">
+          </div>
+        `;
+      }
+      return `
+        <div class="field">
+          <label for="${id}">值</label>
+          <input id="${id}" data-save type="${prop.kind === "number" ? "number" : "text"}" min="${prop.min ?? ""}" max="${prop.max ?? ""}" value="${escapeAttr(String(prop.value ?? ""))}">
+        </div>
+      `;
+    }
+
+    function restoreMemory() {
+      const memory = readMemory();
+      if (!memory.controls) {
+        updateMemoryBadge(false);
+        return;
+      }
+      for (const [id, saved] of Object.entries(memory.controls)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (el.type === "checkbox") {
+          el.checked = Boolean(saved);
+        } else {
+          el.value = saved;
+        }
+      }
+      updateMemoryBadge(true);
+      if (memory.lastChangedId) {
+        setTimeout(() => highlightControl(memory.lastChangedId, false), 80);
+      }
+      if (memory.activeHash && document.querySelector(memory.activeHash)) {
+        setTimeout(() => {
+          document.querySelector(memory.activeHash).scrollIntoView({ block: "start" });
+          if (typeof memory.scrollY === "number") window.scrollTo({ top: memory.scrollY, behavior: "instant" });
+        }, 120);
+      }
+    }
+
+    function readMemory() {
+      try {
+        return JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function writeMemory(patch = {}) {
+      const next = {
+        ...readMemory(),
+        ...patch,
+        controls: serializeControls()
+      };
+      localStorage.setItem(STORE_KEY, JSON.stringify(next));
+      updateMemoryBadge(true);
+    }
+
+    function serializeControls() {
+      const controls = {};
+      $$("[data-save]").forEach(el => {
+        if (!el.id) return;
+        controls[el.id] = el.type === "checkbox" ? el.checked : el.value;
+      });
+      return controls;
+    }
+
+    function updateMemoryBadge(ok) {
+      $("#memoryDot").className = `status-dot ${ok ? "ok" : ""}`;
+      $("#memoryText").textContent = ok ? "已启用本地记忆" : "未找到本地记忆";
+    }
+
+    function setConnection(state, text) {
+      const dot = $("#statusDot");
+      dot.className = `status-dot ${state || ""}`;
+      $("#connectionState").textContent = text;
+    }
+
+    function buildBaseUrl() {
+      const raw = ($("#deviceIp").value || "").trim();
+      if (!raw) throw new Error("请先输入设备 IP。");
+      const stripped = raw.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+      return `${$("#protocol").value}://${stripped}`;
+    }
+
+    function makeUrl(path, params) {
+      const base = buildBaseUrl();
+      const url = new URL(path, `${base}/`);
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+        });
+      }
+      return url.toString();
+    }
+
+    async function apiRequest(path, options = {}) {
+      const method = options.method || "GET";
+      const url = makeUrl(path, options.query);
+      let body;
+      let headers = {};
+      if (Object.prototype.hasOwnProperty.call(options, "body")) {
+        body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
+        if (options.raw) {
+          headers["Content-Type"] = "text/plain;charset=UTF-8";
+        } else if (body !== "") {
+          headers["Content-Type"] = "application/json";
+        }
+      }
+
+      const requestInfo = { method, url, body: body || "" };
+      logResult("发送请求", requestInfo);
+      setConnection("", "请求中");
+
+      try {
+        const response = await fetch(url, { method, headers, body });
+        const text = await response.text();
+        const parsed = parseMaybeJson(text);
+        const result = {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+          url,
+          data: parsed
+        };
+        setConnection(response.ok ? "ok" : "fail", response.ok ? "已连接" : `HTTP ${response.status}`);
+        logResult("收到响应", result);
+        toast(response.ok ? "请求成功" : `请求完成：HTTP ${response.status}`, response.ok ? "success" : "warn");
+        return result;
+      } catch (error) {
+        if (method !== "GET" && $("#noCorsFallback").checked) {
+          await fetch(url, {
+            method,
+            mode: "no-cors",
+            headers: body ? { "Content-Type": "text/plain;charset=UTF-8" } : {},
+            body
+          });
+          const result = {
+            ok: true,
+            status: "opaque",
+            url,
+            note: "浏览器 CORS 限制导致无法读取响应，已用 no-cors/text/plain 兼容模式尝试发送。"
+          };
+          setConnection("ok", "已兼容发送");
+          logResult("兼容模式发送", result);
+          toast("已尝试发送，浏览器无法读取响应", "warn");
+          return result;
+        }
+        setConnection("fail", "请求失败");
+        logResult("请求失败", { url, error: error.message });
+        toast(error.message, "error");
+        throw error;
+      }
+    }
+
+    function parseMaybeJson(text) {
+      if (!text) return "";
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+
+    function logResult(title, payload) {
+      const now = new Date().toLocaleString();
+      $("#resultOutput").textContent = `[${now}] ${title}\n${JSON.stringify(payload, null, 2)}`;
+    }
+
+    function toast(message, type = "success") {
+      const box = document.createElement("div");
+      box.className = `toast-item ${type}`;
+      box.textContent = message;
+      $("#toast").appendChild(box);
+      setTimeout(() => {
+        box.style.opacity = "0";
+        box.style.transform = "translateY(10px)";
+        setTimeout(() => box.remove(), 220);
+      }, 3600);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("'", "&#39;");
+    }
+
+    function normalizeHex(value) {
+      if (typeof value !== "string") return null;
+      const raw = value.trim();
+      const match = raw.match(/^#?([a-fA-F0-9]{6})$/);
+      return match ? `#${match[1].toUpperCase()}` : null;
+    }
+
+    function hexToRgb(hex) {
+      const value = normalizeHex(hex);
+      if (!value) throw new Error(`无效颜色：${hex}`);
+      return [
+        parseInt(value.slice(1, 3), 16),
+        parseInt(value.slice(3, 5), 16),
+        parseInt(value.slice(5, 7), 16)
+      ];
+    }
+
+    function rgbToHex(rgb) {
+      const parts = Array.isArray(rgb) ? rgb : [255, 255, 255];
+      return `#${parts.map(v => Math.max(0, Math.min(255, Number(v) || 0)).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+    }
+
+    function parseColorLike(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      if (raw === "0") return 0;
+      const hex = normalizeHex(raw);
+      if (hex) return hex;
+      if (raw.startsWith("[")) {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length !== 3) throw new Error(`RGB 数组需要 3 个值：${raw}`);
+        return parsed.map(v => clampInt(v, 0, 255));
+      }
+      throw new Error(`无法解析颜色：${raw}`);
+    }
+
+    function parseRgbArray(value) {
+      const raw = String(value || "").trim();
+      if (normalizeHex(raw)) return hexToRgb(raw);
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length !== 3) throw new Error(`RGB 数组需要 3 个值：${raw}`);
+      return parsed.map(v => clampInt(v, 0, 255));
+    }
+
+    function clampInt(value, min, max) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) throw new Error(`不是有效数字：${value}`);
+      return Math.max(min, Math.min(max, Math.round(number)));
+    }
+
+    function parseNumberList(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return [];
+      return raw.split(",").map(v => {
+        const number = Number(v.trim());
+        if (!Number.isFinite(number)) throw new Error(`数字列表包含无效值：${v}`);
+        return number;
+      });
+    }
+
+    function parseCsv(value) {
+      return String(value || "")
+        .split(",")
+        .map(v => v.trim())
+        .filter(Boolean);
+    }
+
+    function getSettingValue(field) {
+      const id = `setting_${field.key}`;
+      const el = document.getElementById(id);
+      if (field.kind === "boolean") return el.checked;
+      if (field.kind === "select") return field.numeric ? Number(el.value) : el.value;
+      if (field.kind === "range" || field.kind === "number") return Number(el.value);
+      if (field.kind === "color") return parseColorLike(el.value);
+      if (field.kind === "rgb") return parseRgbArray(el.value);
+      return el.value;
+    }
+
+    function buildSettingsPayload(onlyIncluded = true) {
+      const payload = {};
+      for (const field of settingFields) {
+        if (onlyIncluded && !$(`#setinc_${field.key}`).checked) continue;
+        payload[field.key] = getSettingValue(field);
+      }
+      return payload;
+    }
+
+    function applySettingsFromObject(data) {
+      if (!data || typeof data !== "object") return;
+      for (const field of settingFields) {
+        if (!Object.prototype.hasOwnProperty.call(data, field.key)) continue;
+        setSettingControlValue(field, data[field.key]);
+      }
+      syncAllPairs();
+      writeMemory();
+      toast("已将读取到的设置填入表单", "success");
+    }
+
+    function setSettingControlValue(field, value) {
+      const id = `setting_${field.key}`;
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (field.kind === "boolean") {
+        el.checked = Boolean(value);
+      } else if (field.kind === "color") {
+        el.value = Array.isArray(value) ? JSON.stringify(value) : String(value);
+        const picker = $(`#${id}_picker`);
+        const hex = Array.isArray(value) ? rgbToHex(value) : normalizeHex(String(value));
+        if (picker && hex) picker.value = hex;
+      } else if (field.kind === "rgb") {
+        const arrayValue = Array.isArray(value) ? value : parseRgbArray(String(value));
+        el.value = JSON.stringify(arrayValue);
+        const picker = $(`#${id}_picker`);
+        if (picker) picker.value = rgbToHex(arrayValue);
+      } else {
+        el.value = String(value);
+      }
+    }
+
+    function getCustomValue(prop) {
+      const id = `prop_${prop.key}`;
+      const el = document.getElementById(id);
+      if (prop.kind === "boolean") return el.checked;
+      if (prop.kind === "select") return prop.numeric ? Number(el.value) : el.value;
+      if (prop.kind === "effect") return el.value;
+      if (prop.kind === "number") return Number(el.value);
+      if (prop.kind === "color") return parseColorLike(el.value);
+      if (prop.kind === "gradient") return [$(`#${id}_a`).value.toUpperCase(), $(`#${id}_b`).value.toUpperCase()];
+      if (prop.kind === "json") return JSON.parse(el.value || "null");
+      if (prop.kind === "numbers") return parseNumberList(el.value);
+      if (prop.kind === "csv") return parseCsv(el.value);
+      if (prop.kind === "textOrJson") {
+        return $(`#${id}_jsonMode`).checked ? JSON.parse(el.value) : el.value;
+      }
+      return el.value;
+    }
+
+    function buildCustomPayload() {
+      if ($("#useRawCustomJson").checked) {
+        const raw = $("#rawCustomJson").value.trim();
+        if (!raw) throw new Error("高级 JSON 已启用，但文本框为空。");
+        return JSON.parse(raw);
+      }
+      const payload = {};
+      for (const prop of customProps) {
+        const include = $(`#propinc_${prop.key}`);
+        if (!include || !include.checked) continue;
+        payload[prop.key] = getCustomValue(prop);
+      }
+      return payload;
+    }
+
+    function updateCustomPreview() {
+      try {
+        $("#customPreview").textContent = JSON.stringify(buildCustomPayload(), null, 2);
+      } catch (error) {
+        $("#customPreview").textContent = `JSON 错误：${error.message}`;
+      }
+    }
+
+    function renderScreen(data) {
+      const matrix = $("#screenMatrix");
+      const cells = $$("span", matrix);
+      let colors = Array.isArray(data) ? data : data?.screen;
+      if (!Array.isArray(colors)) {
+        $("#screenMeta").textContent = "响应不是可识别的屏幕数组";
+        return;
+      }
+      matrix.classList.remove("idle");
+      colors.slice(0, 256).forEach((color, index) => {
+        const hex = screenColorToHex(color);
+        cells[index].style.background = hex;
+        cells[index].style.boxShadow = hex === "#000000" ? "none" : `0 0 9px ${hex}`;
+      });
+      for (let i = colors.length; i < 256; i += 1) {
+        cells[i].style.background = "#111413";
+        cells[i].style.boxShadow = "none";
+      }
+      $("#screenMeta").textContent = `已渲染 ${Math.min(colors.length, 256)} 个像素`;
+    }
+
+    function screenColorToHex(value) {
+      if (Array.isArray(value)) return rgbToHex(value);
+      if (typeof value === "string") return normalizeHex(value) || "#000000";
+      const number = Number(value) >>> 0;
+      const r = (number >> 16) & 255;
+      const g = (number >> 8) & 255;
+      const b = number & 255;
+      return rgbToHex([r, g, b]);
+    }
+
+    function syncAllPairs() {
+      syncRangePair("moodBrightness", "moodBrightnessNumber");
+      syncColorPair("moodColor", "moodColorText");
+      for (let i = 1; i <= 3; i += 1) syncColorPair(`indicator${i}Color`, `indicator${i}Text`);
+      for (const field of settingFields) {
+        const id = `setting_${field.key}`;
+        if (field.kind === "range") syncRangePair(id, `${id}_number`);
+        if (field.kind === "color" || field.kind === "rgb") syncColorTextPair(`${id}_picker`, id, field.kind);
+      }
+      for (const prop of customProps) {
+        const id = `prop_${prop.key}`;
+        if (prop.kind === "color") syncColorPair(`${id}_picker`, id);
+      }
+    }
+
+    function syncRangePair(rangeId, numberId) {
+      const range = document.getElementById(rangeId);
+      const number = document.getElementById(numberId);
+      if (!range || !number) return;
+      const sync = source => {
+        const value = source.value;
+        range.value = value;
+        number.value = value;
+      };
+      range.addEventListener("input", () => sync(range));
+      number.addEventListener("input", () => sync(number));
+      sync(range);
+    }
+
+    function syncColorPair(colorId, textId) {
+      const color = document.getElementById(colorId);
+      const text = document.getElementById(textId);
+      if (!color || !text) return;
+      color.addEventListener("input", () => {
+        text.value = color.value.toUpperCase();
+        text.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      text.addEventListener("input", () => {
+        const hex = normalizeHex(text.value);
+        if (hex) color.value = hex;
+      });
+      const hex = normalizeHex(text.value);
+      if (hex) color.value = hex;
+    }
+
+    function syncColorTextPair(colorId, textId, kind) {
+      const color = document.getElementById(colorId);
+      const text = document.getElementById(textId);
+      if (!color || !text) return;
+      color.addEventListener("input", () => {
+        text.value = kind === "rgb" ? JSON.stringify(hexToRgb(color.value)) : color.value.toUpperCase();
+        text.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      text.addEventListener("input", () => {
+        try {
+          const hex = kind === "rgb" ? rgbToHex(parseRgbArray(text.value)) : normalizeHex(text.value);
+          if (hex) color.value = hex;
+        } catch {
+          // Keep typing fluid while a partial RGB array is being entered.
+        }
+      });
+      try {
+        const hex = kind === "rgb" ? rgbToHex(parseRgbArray(text.value)) : normalizeHex(text.value);
+        if (hex) color.value = hex;
+      } catch {}
+    }
+
+    function attachEvents() {
+      document.addEventListener("input", event => {
+        handleControlChange(event.target);
+      });
+      document.addEventListener("change", event => {
+        handleControlChange(event.target);
+      });
+
+      document.addEventListener("click", async event => {
+        const target = event.target.closest("button, a");
+        if (!target) return;
+
+        if (target.matches("[data-action='get']")) {
+          await apiRequest(target.dataset.path);
+        }
+        if (target.matches("[data-action='emptyPost']")) {
+          await apiRequest(target.dataset.path, { method: "POST", body: "", raw: true });
+        }
+        if (target.matches("[data-open-path]")) {
+          window.open(makeUrl(target.dataset.openPath), "_blank");
+        }
+        if (target.matches("[data-indicator-send]")) {
+          await sendIndicator(Number(target.dataset.indicatorSend));
+        }
+        if (target.matches("[data-indicator-hide]")) {
+          await apiRequest(`/api/indicator${target.dataset.indicatorHide}`, { method: "POST", body: { color: "0" } });
+        }
+        if (target.matches("[data-indicator-empty]")) {
+          await apiRequest(`/api/indicator${target.dataset.indicatorEmpty}`, { method: "POST", body: "", raw: true });
+        }
+      });
+
+      $("#saveDeviceBtn").addEventListener("click", () => {
+        writeMemory();
+        toast("设备地址已保存", "success");
+      });
+      $("#openDeviceBtn").addEventListener("click", () => window.open(buildBaseUrl(), "_blank"));
+      $("#openFullscreenBtn").addEventListener("click", () => {
+        const fps = Number($("#fullscreenFps").value || 30);
+        window.open(makeUrl("/fullscreen", { fps }), "_blank");
+      });
+      $("#readScreenBtn").addEventListener("click", async () => {
+        const result = await apiRequest("/api/screen");
+        renderScreen(result.data);
+      });
+
+      $("#sendPowerBtn").addEventListener("click", () => apiRequest("/api/power", { method: "POST", body: { power: $("#powerState").checked } }));
+      $("#powerOnBtn").addEventListener("click", () => apiRequest("/api/power", { method: "POST", body: { power: true } }));
+      $("#powerOffBtn").addEventListener("click", () => apiRequest("/api/power", { method: "POST", body: { power: false } }));
+      $("#sendSleepBtn").addEventListener("click", () => apiRequest("/api/sleep", { method: "POST", body: { sleep: Number($("#sleepSeconds").value) } }));
+      $("#sendSoundBtn").addEventListener("click", () => apiRequest("/api/sound", { method: "POST", body: { sound: $("#soundName").value.trim() } }));
+      $("#sendRtttlBtn").addEventListener("click", () => apiRequest("/api/rtttl", { method: "POST", body: $("#rtttlText").value, raw: true }));
+
+      $("#sendMoodBtn").addEventListener("click", () => {
+        const payload = { brightness: Number($("#moodBrightness").value) };
+        if ($("#moodMode").value === "kelvin") payload.kelvin = Number($("#moodKelvin").value);
+        else payload.color = parseColorLike($("#moodColorText").value);
+        return apiRequest("/api/moodlight", { method: "POST", body: payload });
+      });
+      $("#disableMoodBtn").addEventListener("click", () => apiRequest("/api/moodlight", { method: "POST", body: "", raw: true }));
+
+      $("#previewCustomBtn").addEventListener("click", updateCustomPreview);
+      $("#sendCustomBtn").addEventListener("click", sendCustomApp);
+      $("#sendCustomBtn2").addEventListener("click", sendCustomApp);
+      $("#sendNotifyBtn").addEventListener("click", sendNotify);
+      $("#sendNotifyBtn2").addEventListener("click", sendNotify);
+      $("#deleteCustomBtn").addEventListener("click", () => {
+        const name = $("#customAppName").value.trim();
+        if (!name) throw new Error("请先填写 Custom App 名称。");
+        return apiRequest("/api/custom", { method: "POST", query: { name }, body: "", raw: true });
+      });
+      $("#dismissNotifyBtn").addEventListener("click", () => apiRequest("/api/notify/dismiss", { method: "POST", body: "", raw: true }));
+
+      $("#switchBuiltinBtn").addEventListener("click", () => apiRequest("/api/switch", { method: "POST", body: { name: $("#switchBuiltin").value } }));
+      $("#switchCustomBtn").addEventListener("click", () => {
+        const name = $("#switchCustom").value.trim();
+        if (!name) throw new Error("请输入自定义 App 名称。");
+        return apiRequest("/api/switch", { method: "POST", body: { name } });
+      });
+
+      $("#readSettingsBtn").addEventListener("click", async () => {
+        const result = await apiRequest("/api/settings");
+        applySettingsFromObject(result.data);
+      });
+      $("#selectAllSettingsBtn").addEventListener("click", () => {
+        settingFields.forEach(field => $(`#setinc_${field.key}`).checked = true);
+        writeMemory();
+      });
+      $("#clearAllSettingsBtn").addEventListener("click", () => {
+        settingFields.forEach(field => $(`#setinc_${field.key}`).checked = false);
+        writeMemory();
+      });
+      $("#sendSelectedSettingsBtn").addEventListener("click", () => {
+        const payload = buildSettingsPayload(true);
+        if (!Object.keys(payload).length) throw new Error("未选择任何设置字段。");
+        return apiRequest("/api/settings", { method: "POST", body: payload });
+      });
+
+      $("#doUpdateBtn").addEventListener("click", () => {
+        const raw = $("#updatePayload").value.trim();
+        const body = raw ? JSON.parse(raw) : "";
+        return apiRequest("/api/doupdate", { method: "POST", body, raw: body === "" });
+      });
+      $("#rebootBtn").addEventListener("click", () => {
+        if (confirm("确认重启 AWTRIX 设备？")) return apiRequest("/api/reboot", { method: "POST", body: "", raw: true });
+      });
+      $("#eraseBtn").addEventListener("click", () => {
+        if (confirm("确认格式化 Flash 与 EEPROM？此操作不可逆。")) return apiRequest("/api/erase", { method: "POST", body: "", raw: true });
+      });
+      $("#resetSettingsBtn").addEventListener("click", () => {
+        if (confirm("确认清空 Settings API 设置？")) return apiRequest("/api/resetSettings", { method: "POST", body: "", raw: true });
+      });
+
+      $("#copyResultBtn").addEventListener("click", async () => {
+        await navigator.clipboard.writeText($("#resultOutput").textContent);
+        toast("响应已复制", "success");
+      });
+      $("#exportMemoryBtn").addEventListener("click", async () => {
+        await navigator.clipboard.writeText(JSON.stringify(readMemory(), null, 2));
+        toast("本地记忆 JSON 已复制", "success");
+      });
+      $("#clearMemoryBtn").addEventListener("click", () => {
+        if (!confirm("确认清除当前浏览器保存的设备地址、表单值和位置？")) return;
+        localStorage.removeItem(STORE_KEY);
+        updateMemoryBadge(false);
+        toast("本地记忆已清除，刷新页面后生效", "warn");
+      });
+
+      window.addEventListener("scroll", debounce(() => {
+        writeMemory({ activeHash: currentSectionHash(), scrollY: window.scrollY });
+        updateActiveNav();
+      }, 140), { passive: true });
+      window.addEventListener("beforeunload", () => writeMemory({ activeHash: currentSectionHash(), scrollY: window.scrollY }));
+    }
+
+    function handleControlChange(target) {
+      if (!target?.matches?.("input, select, textarea")) return;
+      if (target.id?.startsWith("setting_")) {
+        const key = target.id.replace("setting_", "").replace(/_(number|picker)$/, "");
+        const include = $(`#setinc_${key}`);
+        if (include && !target.id.endsWith("_number") && !target.id.endsWith("_picker")) include.checked = true;
+      }
+      if (target.id?.startsWith("prop_")) {
+        const key = target.id.replace("prop_", "").replace(/_(picker|a|b|jsonMode)$/, "");
+        const include = $(`#propinc_${key}`);
+        if (include && !target.id.startsWith("propinc_")) include.checked = true;
+        updateCustomPreview();
+      }
+      highlightControl(target.id, true);
+      writeMemory({ lastChangedId: target.id, activeHash: currentSectionHash(), scrollY: window.scrollY });
+    }
+
+    function highlightControl(id, scroll) {
+      $$(".control.changed").forEach(el => el.classList.remove("changed"));
+      const el = document.getElementById(id);
+      const card = el?.closest(".control") || document.querySelector(`[data-lastable="${CSS.escape(id)}"]`);
+      if (!card) return;
+      card.classList.add("changed");
+      if (scroll) return;
+      card.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+
+    function currentSectionHash() {
+      const sections = $$(".section");
+      let current = sections[0]?.id || "status";
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= 110) current = section.id;
+      }
+      return `#${current}`;
+    }
+
+    function updateActiveNav() {
+      const hash = currentSectionHash();
+      $$("#nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === hash));
+    }
+
+    function debounce(fn, delay) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    async function sendIndicator(index) {
+      const payload = {
+        color: parseColorLike($(`#indicator${index}Text`).value)
+      };
+      const blink = Number($(`#indicator${index}Blink`).value);
+      const fade = Number($(`#indicator${index}Fade`).value);
+      if (blink > 0) payload.blink = blink;
+      if (fade > 0) payload.fade = fade;
+      return apiRequest(`/api/indicator${index}`, { method: "POST", body: payload });
+    }
+
+    async function sendCustomApp() {
+      const name = $("#customAppName").value.trim();
+      if (!name) throw new Error("请先填写 Custom App 名称。");
+      const payload = buildCustomPayload();
+      updateCustomPreview();
+      return apiRequest("/api/custom", { method: "POST", query: { name }, body: payload });
+    }
+
+    async function sendNotify() {
+      const payload = buildCustomPayload();
+      updateCustomPreview();
+      return apiRequest("/api/notify", { method: "POST", body: payload });
+    }
+
+    function initialize() {
+      makeMatrix();
+      for (let i = 1; i <= 3; i += 1) renderIndicator(i);
+      renderSettings();
+      renderCustomProps();
+      restoreMemory();
+      syncAllPairs();
+      updateCustomPreview();
+      attachEvents();
+      updateActiveNav();
+    }
+
+    window.addEventListener("error", event => {
+      toast(event.error?.message || event.message, "error");
+      logResult("脚本错误", { error: event.error?.message || event.message });
+    });
+
+    window.addEventListener("unhandledrejection", event => {
+      const message = event.reason?.message || String(event.reason);
+      toast(message, "error");
+      logResult("异步错误", { error: message });
+    });
+
+    initialize();
+  </script>
+</body>
+</html>

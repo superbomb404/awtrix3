@@ -23,6 +23,7 @@ enum MenuState
     Appmenu,
     SoundMenu,
     VolumeMenu,
+    WifiMenu,
     UpdateMenu,
     MaxMenu
 };
@@ -40,6 +41,7 @@ const char *menuItems[] PROGMEM = {
     "APPS",
     "SOUND",
     "VOLUME",
+    "WIFI",
     "UPDATE"};
 
 int8_t menuIndex = 0;
@@ -144,6 +146,8 @@ String MenuManager_::menutext()
         return AUTO_TRANSITION ? "ON" : "OFF";
     case SoundMenu:
         return SOUND_ACTIVE ? "ON" : "OFF";
+    case WifiMenu:
+        return WIFI_ENABLED ? "ON" : "OFF";
     case TspeedMenu:
         return String(TIME_PER_TRANSITION / 1000.0, 1) + "s";
     case AppTimeMenu:
@@ -256,6 +260,9 @@ void MenuManager_::rightButton()
     case SoundMenu:
         SOUND_ACTIVE = !SOUND_ACTIVE;
         break;
+    case WifiMenu:
+        WIFI_ENABLED = !WIFI_ENABLED;
+        break;
     case TempMenu:
         IS_CELSIUS = !IS_CELSIUS;
         break;
@@ -320,6 +327,9 @@ void MenuManager_::leftButton()
         break;
     case SoundMenu:
         SOUND_ACTIVE = !SOUND_ACTIVE;
+        break;
+    case WifiMenu:
+        WIFI_ENABLED = !WIFI_ENABLED;
         break;
     case VolumeMenu:
         if (!(DFPLAYER_ACTIVE || BUZ_VOL))
@@ -446,6 +456,11 @@ void MenuManager_::selectButtonLong()
         case SoundMenu:
         case TempMenu:
             saveSettings();
+            break;
+        case WifiMenu:
+            saveSettings();
+            delay(200);
+            ESP.restart();
             break;
         case Appmenu:
             DisplayManager.loadNativeApps();

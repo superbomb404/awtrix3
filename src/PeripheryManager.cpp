@@ -111,6 +111,68 @@ MeanFilter<uint16_t> meanFilterLDR(MEAN_WND);
 
 float brightnessPercent = 0.0;
 
+void updateSensorAppVisibility()
+{
+    bool showTemp = false;
+    bool showHum = false;
+
+    switch (TEMP_SENSOR_TYPE)
+    {
+    case TEMP_SENSOR_TYPE_BME280:
+    {
+        float temp = bme280.readTemperature();
+        float hum = bme280.readHumidity();
+        showTemp = !isnan(temp);
+        showHum = !isnan(hum);
+        break;
+    }
+    case TEMP_SENSOR_TYPE_BMP280:
+    {
+        float temp = bmp280.readTemperature();
+        showTemp = !isnan(temp);
+        showHum = false;
+        break;
+    }
+    case TEMP_SENSOR_TYPE_HTU21DF:
+    {
+        float temp = htu21df.readTemperature();
+        float hum = htu21df.readHumidity();
+        showTemp = !isnan(temp);
+        showHum = !isnan(hum);
+        break;
+    }
+    case TEMP_SENSOR_TYPE_SHT31:
+    {
+        float temp = NAN;
+        float hum = NAN;
+        sht31.readBoth(&temp, &hum);
+        showTemp = !isnan(temp);
+        showHum = !isnan(hum);
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (!SENSOR_READING)
+    {
+        showTemp = false;
+        showHum = false;
+    }
+
+    if (SHOW_TEMP != showTemp || SHOW_HUM != showHum)
+    {
+        SHOW_TEMP = showTemp;
+        SHOW_HUM = showHum;
+        saveSettings();
+    }
+
+    if (DEBUG_MODE)
+    {
+        DEBUG_PRINTF("Sensor app visibility: temperature=%s humidity=%s", SHOW_TEMP ? "on" : "off", SHOW_HUM ? "on" : "off");
+    }
+}
+
 PeripheryManager_::PeripheryManager_()
 {
     this->buttonL = &button_left;
@@ -439,6 +501,8 @@ void PeripheryManager_::setup()
             DEBUG_PRINTLN(F("SHT31 sensor detected"));
         TEMP_SENSOR_TYPE = TEMP_SENSOR_TYPE_SHT31;
     }
+
+    updateSensorAppVisibility();
 
 #ifdef awtrix2_upgrade
     dfmp3.begin();

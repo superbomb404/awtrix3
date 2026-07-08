@@ -38,11 +38,15 @@
 #include "ServerManager.h"
 #include "Globals.h"
 #include "UpdateManager.h"
+#include "RTCManager.h"
+#include "Functions.h"
 #include "timer.h"
+#include <Preferences.h>
 
 TaskHandle_t taskHandle;
 volatile bool StopTask = false;
 bool stopBoot;
+const char *FIRST_WIFI_SETUP_KEY = "WIFI_INIT_V1";
 
 void BootAnimation(void *parameter)
 {
@@ -59,6 +63,94 @@ void BootAnimation(void *parameter)
   vTaskDelete(NULL);
 }
 
+bool firstWifiSetupPending()
+{
+  Preferences settings;
+  settings.begin("awtrix", false);
+  bool done = settings.getBool(FIRST_WIFI_SETUP_KEY, false);
+  settings.end();
+  return !done;
+}
+
+void markFirstWifiSetupDone()
+{
+  Preferences settings;
+  settings.begin("awtrix", false);
+  settings.putBool(FIRST_WIFI_SETUP_KEY, true);
+  settings.end();
+}
+
+int16_t centeredTextX(const char *text, byte textCase)
+{
+  return (32 - static_cast<int16_t>(getTextWidth(text, textCase))) / 2;
+}
+
+void drawBootTextSegment(const char *text, int16_t &x, uint32_t color, byte textCase)
+{
+  DisplayManager.setTextColor(color);
+  DisplayManager.setCursor(x, 6);
+  DisplayManager.matrixPrint(text);
+  x += static_cast<int16_t>(getTextWidth(text, textCase));
+}
+
+void showCenteredBootText(const char *text, uint32_t color, unsigned long durationMs, byte textCase = 2)
+{
+  DisplayManager.clear();
+  DisplayManager.setTextColor(color);
+  DisplayManager.setCursor(centeredTextX(text, textCase), 6);
+  DisplayManager.matrixPrint(text);
+  DisplayManager.show();
+  if (durationMs > 0)
+    delay(durationMs);
+}
+
+void showRtc404()
+{
+  const byte textCase = 2;
+  const char *part1 = "RTC ";
+  const char *part2 = "404";
+  int16_t x = (32 - static_cast<int16_t>(getTextWidth(part1, textCase) + getTextWidth(part2, textCase))) / 2;
+  DisplayManager.clear();
+  drawBootTextSegment(part1, x, 0xFFFFFF, textCase);
+  drawBootTextSegment(part2, x, 0xFF0000, textCase);
+  DisplayManager.show();
+  delay(2000);
+}
+
+void showWifiOff()
+{
+  const byte textCase = 2;
+  const char *part1 = "WiFi ";
+  const char *part2 = "OFF";
+  int16_t x = (32 - static_cast<int16_t>(getTextWidth(part1, textCase) + getTextWidth(part2, textCase))) / 2;
+  DisplayManager.clear();
+  drawBootTextSegment(part1, x, 0xFFFFFF, textCase);
+  drawBootTextSegment(part2, x, 0xFF0000, textCase);
+  DisplayManager.show();
+  delay(2000);
+}
+
+void blinkOffline()
+{
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    showCenteredBootText("OFFLINE", 0xFF0000, 400, 2);
+    DisplayManager.clear();
+    DisplayManager.show();
+    delay(400);
+  }
+}
+
+void showDecorativeWifiDisabledBoot()
+{
+  const unsigned long startTime = millis();
+  while (millis() - startTime < 3000)
+  {
+    DisplayManager.HSVtext(centeredTextX("AWTRIX", 2), 6, "AWTRIX", true, 2);
+    delay(25);
+  }
+}
+
 void setup()
 {
   pinMode(15, OUTPUT);
@@ -66,16 +158,39 @@ void setup()
   delay(2000);
   Serial.begin(115200);
   loadSettings();
+  bool wifiSetupPending = firstWifiSetupPending();
   PeripheryManager.setup();
   ServerManager.loadSettings();
+  RTCManager.setup();
+  bool rtcPresent = RTCManager.isAvailable();
+  if (rtcPresent)
+  {
+    RTCManager.syncSystemFromRtc();
+  }
+  timer_tick();
   DisplayManager.setup();
-  DisplayManager.HSVtext(9, 6, VERSION, true, 0);
-  delay(500);
+  if (!rtcPresent)
+  {
+    showRtc404();
+  }
+  showCenteredBootText(VERSION, 0xFFFFFF, 500);
+
+  bool networkRequired = !rtcPresent || wifiSetupPending;
+  if (networkRequired && !WIFI_ENABLED)
+  {
+    WIFI_ENABLED = true;
+    saveSettings();
+  }
+
   xTaskCreatePinnedToCore(BootAnimation, "Task", 10000, NULL, 1, &taskHandle, 0);
   ServerManager.setup();
   if (ServerManager.isConnected)
   {
-    // timer_init();
+    if (wifiSetupPending)
+    {
+      markFirstWifiSetupDone();
+      wifiSetupPending = false;
+    }
     DisplayManager.loadNativeApps();
     DisplayManager.loadCustomApps();
     UpdateManager.setup();
@@ -107,8 +222,25 @@ void setup()
   }
   else
   {
-    AP_MODE = true;
     StopTask = true;
+    if (networkRequired)
+    {
+      AP_MODE = true;
+    }
+    else
+    {
+      DisplayManager.loadNativeApps();
+      DisplayManager.loadCustomApps();
+      if (WIFI_ENABLED)
+      {
+        blinkOffline();
+      }
+      else
+      {
+        showDecorativeWifiDisabledBoot();
+        showWifiOff();
+      }
+    }
   }
   delay(200);
   DisplayManager.setBrightness(BRIGHTNESS);
@@ -117,10 +249,11 @@ void setup()
 void loop()
 {
   timer_tick();
+  RTCManager.tick(ServerManager.isConnected);
   ServerManager.tick();
   DisplayManager.tick();
   PeripheryManager.tick();
-  if (ServerManager.isConnected)
+  if (WIFI_ENABLED && ServerManager.isConnected)
   {
     MQTTManager.tick();
   }

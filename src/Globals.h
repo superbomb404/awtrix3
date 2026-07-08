@@ -43,6 +43,7 @@ extern String MQTT_PASS;
 extern String MQTT_PREFIX;
 extern bool IO_BROKER;
 extern bool NET_STATIC;
+extern bool WIFI_ENABLED;
 extern bool SHOW_TIME;
 extern bool SHOW_DATE;
 extern bool SHOW_WEATHER;
